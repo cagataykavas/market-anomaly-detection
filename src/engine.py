@@ -86,6 +86,8 @@ class MarketAnomalyEngine:
                 reasons.append("multivariate Isolation Forest outlier")
             if regime == "high":
                 reasons.append("high-volatility regime threshold applied")
+            if not reasons:
+                reasons.append("combined anomaly score exceeded regime threshold")
             events.append(
                 AnomalyEvent(
                     timestamp=str(timestamp),
