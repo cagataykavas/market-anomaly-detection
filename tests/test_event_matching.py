@@ -2,6 +2,7 @@ import json
 
 import pandas as pd
 import pytest
+
 from src.evaluation import event_detection_metrics
 
 
