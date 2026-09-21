@@ -105,3 +105,12 @@ This repository is an engineering/research demonstration. An anomaly score means
 ## Portfolio signal
 
 **Python · Pandas · scikit-learn · Isolation Forest · robust statistics · time series · anomaly detection · regime analysis · FastAPI · Docker · CI/CD**
+
+
+## One-to-one temporal event evaluation
+
+The synthetic benchmark uses an optimal one-to-one matcher inside the configured time tolerance. One alert cannot receive credit for multiple nearby shock events, and one shock cannot consume multiple alerts. The dynamic-programming matcher first maximizes the number of detected events and then minimizes total absolute detection delay.
+
+Evaluation evidence now includes false-positive alerts, missed events, signed per-match delay, mean and maximum absolute delay, early/same-time/late counts, and the exact unmatched timestamps. Outputs remain JSON-serializable for CI artifacts and model-review records.
+
+This corrects metric inflation but does not make synthetic shocks representative of live markets. The tolerance is part of the evaluation contract and should be chosen before comparing models. Real validation also needs timestamp/market-calendar normalization, label-maturity rules, regime-stratified results and uncertainty across multiple historical periods.
