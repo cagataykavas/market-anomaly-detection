@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pandas as pd
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, FiniteFloat
 
 from src.engine import MarketAnomalyEngine
 from src.synthetic import synthetic_ohlcv
@@ -12,16 +12,16 @@ ENGINE = MarketAnomalyEngine()
 
 
 class MarketRow(BaseModel):
-    timestamp: str
-    open: float
-    high: float
-    low: float
-    close: float
-    volume: float = Field(ge=0)
+    timestamp: str = Field(min_length=1, max_length=100)
+    open: FiniteFloat = Field(gt=0)
+    high: FiniteFloat = Field(gt=0)
+    low: FiniteFloat = Field(gt=0)
+    close: FiniteFloat = Field(gt=0)
+    volume: FiniteFloat = Field(ge=0)
 
 
 class AnalysisRequest(BaseModel):
-    rows: list[MarketRow] = Field(min_length=80)
+    rows: list[MarketRow] = Field(min_length=80, max_length=100_000)
     contamination: float = Field(default=0.02, gt=0, lt=0.5)
 
 
