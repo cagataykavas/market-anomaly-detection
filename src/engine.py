@@ -6,6 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
+from .admission import validate_market_frame
 from .detectors import build_market_features, isolation_forest, robust_zscore
 from .regimes import classify_volatility_regime, regime_adjusted_threshold
 
@@ -52,6 +53,7 @@ class MarketAnomalyEngine:
         contamination: float = 0.02,
         seed: int = 42,
     ) -> dict[str, Any]:
+        validate_market_frame(frame)
         features = build_market_features(frame)
         return_signal = robust_zscore(features["return_1"], robust_window, robust_threshold)
         volume_signal = robust_zscore(features["volume_change"], robust_window, robust_threshold)
