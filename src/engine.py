@@ -11,6 +11,35 @@ from .regimes import classify_volatility_regime, regime_adjusted_threshold
 
 
 @dataclass(frozen=True)
+class ScoreComponent:
+    signal: str
+    contribution: float
+    reported: bool
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "signal": self.signal,
+            "contribution": self.contribution,
+            "reported": self.reported,
+        }
+
+
+@dataclass(frozen=True)
+class ScoreExplanation:
+    components: tuple[ScoreComponent, ...]
+    baseline: float = 0.0
+    method: str = "weighted-signal-decomposition-v1"
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "method": self.method,
+            "baseline": self.baseline,
+            "components": [component.as_dict() for component in self.components],
+            "reported_components": [component.signal for component in self.components if component.reported],
+        }
+
+
+@dataclass(frozen=True)
 class AnomalyEvent:
     timestamp: str
     score: float
@@ -19,6 +48,8 @@ class AnomalyEvent:
     return_1: float
     volume_change: float
     reasons: tuple[str, ...]
+    threshold: float
+    explanation: ScoreExplanation
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -29,6 +60,8 @@ class AnomalyEvent:
             "return_1": self.return_1,
             "volume_change": self.volume_change,
             "reasons": list(self.reasons),
+            "threshold": self.threshold,
+            "explanation": self.explanation.as_dict(),
         }
 
 
@@ -67,6 +100,11 @@ class MarketAnomalyEngine:
         ensemble = (0.45 * iso_rank + 0.35 * return_norm + 0.20 * volume_norm).fillna(0.0)
 
         events: list[AnomalyEvent] = []
+        reason_labels = {
+            "isolation_forest": "multivariate Isolation Forest contribution",
+            "robust_return": "robust return magnitude contribution",
+            "robust_volume": "robust volume-change contribution",
+        }
         score_series = pd.Series(ensemble, index=common, name="ensemble_score")
         flags = pd.Series(False, index=common)
         for timestamp in common:
@@ -77,13 +115,33 @@ class MarketAnomalyEngine:
                 continue
             flags.loc[timestamp] = True
             row = features.loc[timestamp]
-            reasons: list[str] = []
-            if float(return_signal.scores.get(timestamp, 0.0)) >= robust_threshold:
-                reasons.append("extreme robust return z-score")
-            if float(volume_signal.scores.get(timestamp, 0.0)) >= robust_threshold:
-                reasons.append("extreme volume change")
-            if bool(isolation.flags.get(timestamp, False)):
-                reasons.append("multivariate Isolation Forest outlier")
+            contribution_by_signal = {
+                "isolation_forest": 0.45 * float(iso_rank.loc[timestamp]),
+                "robust_return": 0.35 * float(return_norm.loc[timestamp]),
+                "robust_volume": 0.20 * float(volume_norm.loc[timestamp]),
+            }
+            positive_total = sum(max(value, 0.0) for value in contribution_by_signal.values())
+            reported = {
+                signal
+                for signal, contribution in contribution_by_signal.items()
+                if positive_total > 0.0 and contribution / positive_total >= 0.10
+            }
+            if positive_total > 0.0:
+                for signal, contribution in sorted(
+                    contribution_by_signal.items(), key=lambda item: item[1], reverse=True
+                ):
+                    reported_coverage = (
+                        sum(contribution_by_signal[name] for name in reported) / positive_total
+                    )
+                    if reported_coverage >= 0.90:
+                        break
+                    if contribution > 0.0:
+                        reported.add(signal)
+            components = tuple(
+                ScoreComponent(signal=signal, contribution=contribution, reported=signal in reported)
+                for signal, contribution in contribution_by_signal.items()
+            )
+            reasons = [reason_labels[signal] for signal in contribution_by_signal if signal in reported]
             if regime == "high":
                 reasons.append("high-volatility regime threshold applied")
             if not reasons:
@@ -97,6 +155,8 @@ class MarketAnomalyEngine:
                     return_1=float(row.get("return_1", np.nan)),
                     volume_change=float(row.get("volume_change", np.nan)),
                     reasons=tuple(reasons),
+                    threshold=float(threshold),
+                    explanation=ScoreExplanation(components=components),
                 )
             )
 

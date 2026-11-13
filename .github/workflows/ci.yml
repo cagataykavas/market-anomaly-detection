@@ -15,6 +15,7 @@ jobs:
       - run: ruff check .
       - run: python -m pytest -q
       - run: python -m src.cli --rows 400 --seed 42
+      - run: python -m src.explanation_audit artifacts/anomalies.json --output artifacts/explanation-audit.json
   container:
     runs-on: ubuntu-latest
     steps:
