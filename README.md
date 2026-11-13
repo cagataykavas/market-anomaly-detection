@@ -33,7 +33,8 @@ flowchart LR
 - percentile-normalized score fusion;
 - low / normal / high volatility regime classification;
 - regime-sensitive anomaly thresholds;
-- reason codes explaining which signal contributed to an event.
+- additive signal contributions with reason codes covering material score drivers;
+- a fail-closed explanation-fidelity audit for additivity, coverage and threshold consistency.
 
 ## Why regime awareness matters
 
@@ -60,6 +61,15 @@ Outputs:
 artifacts/anomalies.json
 artifacts/anomalies.html
 ```
+
+Validate that every published reason is tied to the ensemble score:
+
+```bash
+python -m src.explanation_audit artifacts/anomalies.json \
+  --output artifacts/explanation-audit.json
+```
+
+See [the explanation-fidelity contract](docs/explanation-fidelity.md) for the schema, policy checks and limitations.
 
 For custom data:
 
